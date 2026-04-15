@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Critical for iPad: Prevents zooming in when tapping quickly -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Text Detective: Classify the Writing!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom animations for right/wrong answers */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+        
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .animate-pop {
+            animation: pop 0.4s ease-in-out;
+        }
+
+        /* Disable text selection on iPad so kids don't accidentally highlight text */
+        body {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+        }
+
+        .paper-bg {
+            background-color: #fff9e6;
+            background-image: repeating-linear-gradient(transparent, transparent 31px, #e5e5e5 31px, #e5e5e5 32px);
+            line-height: 32px;
+            padding-top: 32px;
+        }
+
+        .photo-frame {
+            background: white;
+            padding: 10px 10px 24px 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            display: inline-block;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        /* Styles for Session 2 Layout */
+        .para-row {
+            display: flex;
+            align-items: stretch;
+            margin-bottom: 0.5rem;
+        }
+        
+        .para-text {
+            flex: 1;
+            padding-right: 1rem;
+            text-align: justify;
+        }
+
+        .para-drop {
+            width: 130px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .drop-zone {
+            border: 3px dashed #cbd5e1;
+            border-radius: 0.75rem;
+            background-color: rgba(255, 255, 255, 0.6);
+            min-height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .drop-zone.correct {
+            border: 3px solid #22c55e;
+            background-color: #dcfce7;
+        }
+
+        .draggable-label {
+            touch-action: none; /* Crucial for iPad dragging */
+            user-select: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        /* Highlight when a student taps a word */
+        .selected-label {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
+            border-color: #2563eb !important;
+            z-index: 10;
+        }
+
+        @media (max-width: 768px) {
+            .para-drop { width: 100px; }
+            .paper-bg { line-height: 24px; background-image: repeating-linear-gradient(transparent, transparent 23px, #e5e5e5 23px, #e5e5e5 24px); padding-top: 24px;}
+        }
+    </style>
+</head>
+<body class="bg-blue-50 h-screen w-screen flex flex-col items-center justify-center overflow-hidden">
+
+    <!-- Game Container (Session 1) -->
+    <div id="game-screen" class="w-full max-w-2xl px-4 flex flex-col h-full py-6">
+        
+        <!-- Header & Progress -->
+        <div class="text-center mb-4">
+            <h1 class="text-3xl font-bold text-blue-800 mb-2">🕵️ Text Detective</h1>
+            <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border-2 border-blue-200">
+                <span id="score-display" class="text-lg font-bold text-green-600">Score: 0</span>
+                <span id="progress-display" class="text-lg font-bold text-blue-600">Question 1 / 6</span>
+            </div>
+        </div>
+
+        <!-- The Text Snippet Card -->
+        <div id="card-container" class="flex-grow flex flex-col justify-center items-center mb-6 relative w-full">
+            <div id="text-card" class="paper-bg w-full flex-1 min-h-[380px] border-4 border-yellow-300 rounded-2xl shadow-lg p-6 text-lg md:text-xl text-gray-800 font-medium transition-transform duration-300">
+                <!-- Text will be injected here -->
+            </div>
+            
+            <!-- Feedback Overlay (Correct/Wrong Message) -->
+            <div id="feedback-overlay" class="absolute inset-0 flex items-center justify-center hidden rounded-2xl bg-white bg-opacity-90 z-10">
+                <div id="feedback-message" class="text-4xl font-bold text-center px-4"></div>
+            </div>
+        </div>
+
+        <!-- The Three Classification Buttons -->
+        <div class="grid grid-cols-3 gap-3 w-full pb-4">
+            <button onclick="checkAnswer('email')" class="flex flex-col items-center justify-center bg-red-100 hover:bg-red-200 border-4 border-red-400 text-red-800 rounded-2xl p-4 shadow-md active:scale-95 transition-transform">
+                <span class="text-4xl mb-2">📧</span>
+                <span class="font-bold text-lg md:text-xl">Email</span>
+            </button>
+            
+            <button onclick="checkAnswer('review')" class="flex flex-col items-center justify-center bg-teal-100 hover:bg-teal-200 border-4 border-teal-400 text-teal-800 rounded-2xl p-4 shadow-md active:scale-95 transition-transform">
+                <span class="text-4xl mb-2">🍕</span>
+                <span class="font-bold text-lg md:text-xl leading-tight">Restaurant<br>Review</span>
+            </button>
+            
+            <button onclick="checkAnswer('blog')" class="flex flex-col items-center justify-center bg-green-100 hover:bg-green-200 border-4 border-green-400 text-green-800 rounded-2xl p-4 shadow-md active:scale-95 transition-transform">
+                <span class="text-4xl mb-2">💻</span>
+                <span class="font-bold text-lg md:text-xl leading-tight">Blog<br>Entry</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- End Screen -->
+    <div id="end-screen" class="hidden w-full max-w-xl px-4 flex flex-col items-center justify-center text-center">
+        <h1 class="text-5xl font-bold text-blue-800 mb-6">🎉 Game Over!</h1>
+        <div class="bg-white p-8 rounded-3xl shadow-xl border-4 border-yellow-400 w-full mb-8">
+            <p class="text-2xl mb-4">Your Final Score:</p>
+            <p id="final-score" class="text-6xl font-black text-green-500 mb-6"></p>
+            <p id="teacher-message" class="text-xl text-gray-700"></p>
+        </div>
+        
+        <button onclick="goToPasswordScreen()" class="bg-blue-500 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-lg border-b-4 border-blue-700 active:translate-y-1 active:border-b-0 mb-4 w-full">
+            Go to Session 2 ➡️
+        </button>
+        <button onclick="restartGame()" class="text-blue-500 font-bold underline text-lg p-2">
+            Play Session 1 Again 🔄
+        </button>
+    </div>
+
+    <!-- Password Screen -->
+    <div id="password-screen" class="hidden w-full max-w-xl px-4 flex flex-col items-center justify-center text-center h-full m-auto">
+        <h1 class="text-5xl font-bold text-purple-800 mb-6">🔒 Level 2 Locked</h1>
+        <div class="bg-white p-8 rounded-3xl shadow-xl border-4 border-purple-400 w-full mb-8">
+            <p class="text-2xl mb-6 text-gray-700">Ask your teacher for the password to continue to Session 2!</p>
+            <input type="number" id="password-input" class="text-center text-4xl p-4 border-4 border-gray-300 rounded-xl mb-2 w-full max-w-xs focus:border-purple-500 focus:outline-none" placeholder="****">
+            <p id="password-error" class="text-red-500 font-bold text-lg hidden mt-2">❌ Wrong password! Try again.</p>
+        </div>
+        <button onclick="checkPassword()" class="bg-purple-500 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-lg border-b-4 border-purple-700 active:translate-y-1 active:border-b-0 w-full max-w-xs">
+            Unlock 🔓
+        </button>
+    </div>
+
+    <!-- Session 2 Screen: Blog Structure (NEW LAYOUT) -->
+    <div id="session2-screen" class="hidden w-full max-w-6xl px-2 md:px-4 flex flex-col h-full py-4 m-auto">
+        
+        <!-- Instructions Header -->
+        <div class="text-center mb-2 shrink-0">
+            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-1">📝 Session 2: Blog Structure</h1>
+            <p class="text-gray-700 font-bold text-base md:text-lg bg-yellow-100 inline-block px-4 py-1 rounded-full border border-yellow-300 shadow-sm">
+                👆 點擊右邊的字塊，然後點擊正確的虛線框！ (Tap a word, then tap a box)
+            </p>
+        </div>
+        
+        <!-- Main Layout: 75% Left (Paper), 25% Right (Words) -->
+        <div class="flex flex-row w-full flex-1 gap-3 md:gap-6 overflow-hidden h-full pb-2">
+            
+            <!-- LEFT COLUMN: The Paper -->
+            <div class="w-3/4 paper-bg border-4 border-yellow-300 rounded-2xl shadow-lg p-3 md:p-6 text-sm md:text-lg text-gray-800 font-medium bg-white flex flex-col justify-around">
+                
+                <!-- Title Row -->
+                <div class="para-row">
+                    <div class="para-text flex items-center justify-center">
+                        <h2 class="text-3xl md:text-4xl font-bold" style="font-family: 'Comic Sans MS', cursive;">Christmas</h2>
+                    </div>
+                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="title">
+                        <div class="drop-zone w-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
+                    </div>
+                </div>
+
+                <!-- Intro Row -->
+                <div class="para-row">
+                    <div class="para-text">
+                        <p>Christmas is a joyful festival. People celebrate Christmas in December. Many people enjoy celebrating this festival.</p>
+                    </div>
+                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="introduction">
+                        <div class="drop-zone w-full h-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
+                    </div>
+                </div>
+
+                <!-- Body Row (Groups Para 2 & 3 together) -->
+                <div class="para-row">
+                    <div class="para-text flex flex-col gap-2 md:gap-4">
+                        <p>Before Christmas, people buy gifts for their family and friends. Also, they write beautiful Christmas cards for their family and friends. Moreover, people decorate the Christmas tree at home with colourful tinsels and ornaments.</p>
+                        <p>On Christmas Day, family members get together and have a Christmas meal. They eat a big turkey and Christmas pudding. They also exchange gifts and give out Christmas cards.</p>
+                    </div>
+                    <!-- Single Drop zone for both body paragraphs -->
+                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="body">
+                        <div class="drop-zone w-full h-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
+                    </div>
+                </div>
+
+                <!-- Ending Row -->
+                <div class="para-row">
+                    <div class="para-text">
+                        <p>I love Christmas because it makes people feel happy and warm.</p>
+                    </div>
+                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="ending">
+                        <div class="drop-zone w-full h-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: Word Bank -->
+            <div class="w-1/4 bg-blue-50 border-4 border-blue-200 rounded-2xl p-2 md:p-4 flex flex-col items-center justify-center gap-4 md:gap-6 shadow-inner">
+                <h3 class="font-bold text-blue-800 text-center text-lg md:text-2xl mb-2 border-b-2 border-blue-200 pb-2 w-full">字塊</h3>
+
+                <!-- Mixed up order for the game -->
+                <div class="draggable-label bg-pink-200 border-2 border-pink-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="introduction" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
+                    Introduction
+                </div>
+
+                <div class="draggable-label bg-orange-200 border-2 border-orange-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="title" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
+                    Title
+                </div>
+
+                <div class="draggable-label bg-purple-200 border-2 border-purple-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="ending" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
+                    Ending
+                </div>
+
+                <div class="draggable-label bg-green-200 border-2 border-green-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="body" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
+                    Body
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Success Message -->
+        <div id="s2-success" class="hidden shrink-0 text-center text-xl md:text-3xl font-bold text-green-600 animate-pop py-2">
+            🎉 恭喜！你完成了文章結構配對！ (Well done!)
+        </div>
+    </div>
+
+    <script>
+        // --- SESSION 1 LOGIC ---
+        const questions = [
+            { text: "To: Mr. Wong<br>Subject: Sick Leave<br><br>Dear Mr. Wong,<br><br>I cannot go to school today because I have a fever. I will rest at home.<br><br>Best regards,<br>Tom", type: "email", hint: "Look at the top! It says 'To:' and 'Subject:'." },
+            { text: "<div class='font-black text-2xl text-blue-700 mb-2 border-b-2 border-blue-200 pb-1 leading-tight'>My Photography Journey 📸</div><div class='text-center my-3'><div class='photo-frame transform -rotate-3 text-6xl'>📷✨</div></div>Date: 15th April 2026<br><br>Hi everyone! Welcome to my page. Today I want to share my new hobby with you all!<br><br>I got a new camera for my birthday. I took many beautiful pictures of flowers in the park yesterday. I hope you like them!", type: "blog", hint: "Look for the big heading, 'Date' and the greeting to 'everyone'." },
+            { text: "<div class='text-center my-3'><div class='photo-frame transform rotate-2 text-7xl'>🍕😋</div></div>⭐⭐⭐⭐⭐<br><br>The pizza was amazing! The cheese was so yummy. The waiter was very polite too.", type: "review", hint: "Look for the Stars (⭐) and pictures/words about food!" },
+            { text: "From: Jenny<br>To: Mary<br><br>Hi Mary,<br><br>Do you want to go to the cinema this Saturday? Let me know!<br><br>Best regards,<br>Jenny", type: "email", hint: "It has a 'From:' and a 'To:'. People send these to each other." },
+            { text: "<div class='font-black text-2xl text-blue-700 mb-2 border-b-2 border-blue-200 pb-1 leading-tight'>So Much Homework! 😭</div><div class='text-center my-3'><div class='photo-frame transform rotate-3 text-6xl'>📚😴</div></div>Date: 20th May 2026<br><br>I feel so tired today. School was very hard. I have too much homework! 😭<br><br>I have to write a long story for English class. I also have math exercises to finish. I just want to sleep now. Goodnight everyone!", type: "blog", hint: "It has a big heading and a Date, and the writer is sharing their personal feelings like a diary." },
+            { text: "<div class='text-center my-3'><div class='photo-frame transform -rotate-2 text-7xl'>🍔🧊</div></div>⭐<br><br>Terrible! The burger was cold and the restaurant was very dirty. I will not go back.", type: "review", hint: "It has a Star rating (⭐) and talks about a restaurant's food and cleanliness." }
+        ];
+
+        let currentIndex = 0;
+        let score = 0;
+        let isWaiting = false; 
+
+        const textCard = document.getElementById('text-card');
+        const scoreDisplay = document.getElementById('score-display');
+        const progressDisplay = document.getElementById('progress-display');
+        const feedbackOverlay = document.getElementById('feedback-overlay');
+        const feedbackMessage = document.getElementById('feedback-message');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        
+        const passwordScreen = document.getElementById('password-screen');
+        const session2Screen = document.getElementById('session2-screen');
+        const passwordInput = document.getElementById('password-input');
+        const passwordError = document.getElementById('password-error');
+
+        function loadQuestion() {
+            if (currentIndex >= questions.length) {
+                showEndScreen();
+                return;
+            }
+            const currentQ = questions[currentIndex];
+            textCard.innerHTML = currentQ.text;
+            progressDisplay.innerText = `Question ${currentIndex + 1} / ${questions.length}`;
+            scoreDisplay.innerText = `Score: ${score}`;
+            
+            textCard.classList.remove('animate-pop');
+            void textCard.offsetWidth; 
+            textCard.classList.add('animate-pop');
+            isWaiting = false;
+        }
+
+        function checkAnswer(selectedType) {
+            if (isWaiting) return; 
+            isWaiting = true;
+
+            const currentQ = questions[currentIndex];
+            const isCorrect = selectedType === currentQ.type;
+
+            feedbackOverlay.classList.remove('hidden');
+
+            if (isCorrect) {
+                score += 10;
+                feedbackMessage.innerHTML = "✅ Correct!<br><span class='text-xl text-gray-600 mt-2 block'>Great job!</span>";
+                feedbackMessage.className = "text-5xl font-bold text-center px-4 text-green-500";
+                scoreDisplay.innerText = `Score: ${score}`;
+                
+                setTimeout(() => {
+                    feedbackOverlay.classList.add('hidden');
+                    currentIndex++;
+                    loadQuestion();
+                }, 1200);
+
+            } else {
+                textCard.classList.remove('animate-shake');
+                void textCard.offsetWidth; 
+                textCard.classList.add('animate-shake');
+
+                feedbackMessage.innerHTML = `❌ Oops!<br><span class='text-2xl text-blue-600 mt-4 block p-4 bg-blue-50 rounded-xl border border-blue-200'><b>Hint:</b> ${currentQ.hint}</span>`;
+                feedbackMessage.className = "text-5xl font-bold text-center px-4 text-red-500";
+
+                setTimeout(() => {
+                    feedbackOverlay.classList.add('hidden');
+                    currentIndex++;
+                    loadQuestion();
+                }, 3500);
+            }
+        }
+
+        function showEndScreen() {
+            gameScreen.classList.add('hidden');
+            endScreen.classList.remove('hidden');
+            document.getElementById('final-score').innerText = score;
+            
+            let msg = "";
+            if (score === 60) msg = "Perfect! You are ready to write a blog!";
+            else if (score >= 40) msg = "Good job! You know your text types well.";
+            else msg = "Good try! Let's review the features together.";
+            
+            document.getElementById('teacher-message').innerText = msg;
+        }
+
+        function restartGame() {
+            currentIndex = 0;
+            score = 0;
+            questions.sort(() => Math.random() - 0.5);
+            endScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            loadQuestion();
+        }
+
+        function goToPasswordScreen() {
+            endScreen.classList.add('hidden');
+            passwordScreen.classList.remove('hidden');
+            passwordInput.value = '';
+            passwordError.classList.add('hidden');
+        }
+
+        function checkPassword() {
+            if (passwordInput.value === "6519") {
+                passwordScreen.classList.add('hidden');
+                session2Screen.classList.remove('hidden');
+            } else {
+                passwordError.classList.remove('hidden');
+                passwordInput.classList.remove('animate-shake');
+                void passwordInput.offsetWidth; 
+                passwordInput.classList.add('animate-shake');
+            }
+        }
+
+        // --- SESSION 2 LOGIC (Drag / Tap & Drop) ---
+        let selectedLabel = null;
+        let s2Score = 0;
+
+        // User taps a label in the word bank
+        function selectLabel(element) {
+            if (element.parentElement.classList.contains('drop-zone')) return; // Already dropped
+            
+            if (selectedLabel) {
+                selectedLabel.classList.remove('selected-label');
+            }
+            selectedLabel = element;
+            selectedLabel.classList.add('selected-label');
+        }
+
+        // Support for HTML5 Drag (Mouse users)
+        function handleDragStart(event, element) {
+            selectLabel(element); // Highlight it
+            event.dataTransfer.setData('text', element.dataset.type);
+        }
+
+        // User taps a drop zone, or drops via mouse
+        function dropToZone(zoneWrapper) {
+            // Because onclick is on the wrapper, find the actual dashed zone inside
+            const zoneElement = zoneWrapper.querySelector('.drop-zone');
+            if (!zoneElement || !selectedLabel) return;
+
+            const expected = zoneWrapper.dataset.expected;
+            const actual = selectedLabel.dataset.type;
+
+            if (expected === actual) {
+                // Correct match!
+                zoneElement.innerHTML = ''; // Remove "Drop here" text
+                zoneElement.appendChild(selectedLabel);
+                
+                // Style adjustments so it fits perfectly in the box
+                selectedLabel.classList.remove('selected-label');
+                selectedLabel.style.margin = "0";
+                selectedLabel.style.width = "100%";
+                selectedLabel.style.height = "100%";
+                selectedLabel.style.display = "flex";
+                selectedLabel.style.alignItems = "center";
+                selectedLabel.style.justifyContent = "center";
+                selectedLabel.onclick = null; // Disable clicking it again
+                
+                zoneElement.classList.add('correct');
+                selectedLabel = null;
+                s2Score++;
+                
+                // Win Condition
+                if (s2Score === 4) {
+                    document.getElementById('s2-success').classList.remove('hidden');
+                }
+            } else {
+                // Wrong match -> Shake animation
+                zoneElement.classList.add('animate-shake');
+                setTimeout(() => zoneElement.classList.remove('animate-shake'), 400);
+            }
+        }
+
+        window.onload = loadQuestion;
+    </script>
+</body>
+</html>
