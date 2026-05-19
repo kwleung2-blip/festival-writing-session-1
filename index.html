@@ -1,462 +1,783 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <!-- Critical for iPad: Prevents zooming in when tapping quickly -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Text Detective: Classify the Writing!</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Final Term Exam Vocabulary List (listening)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom animations for right/wrong answers */
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            50% { transform: translateX(10px); }
-            75% { transform: translateX(-10px); }
-        }
-        .animate-shake {
-            animation: shake 0.4s ease-in-out;
+        /* iOS Specific Fixes */
+        * {
+            -webkit-tap-highlight-color: transparent; /* 移除 iOS 點擊時的灰色反白 */
         }
         
-        @keyframes pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        .animate-pop {
-            animation: pop 0.4s ease-in-out;
+        /* 針對 iPhone 底部的安全區域 (Safe Area) */
+        .safe-pb {
+            padding-bottom: env(safe-area-inset-bottom, 20px);
         }
 
-        /* Disable text selection on iPad so kids don't accidentally highlight text */
-        body {
+        /* Flip Card CSS */
+        .perspective {
+            perspective: 1000px;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+        .card-inner {
+            transition: transform 0.6s;
+        }
+        .flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        /* Swipe Card CSS */
+        .swipe-card {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            will-change: transform, opacity;
+        }
+        .swipe-left-anim {
+            transform: translate(-150%, 20px) rotate(-15deg) !important;
+            opacity: 0;
+        }
+        .swipe-right-anim {
+            transform: translate(150%, 20px) rotate(15deg) !important;
+            opacity: 0;
+        }
+
+        /* Prevent text selection during interaction */
+        .no-select {
+            user-select: none;
             -webkit-user-select: none;
-            user-select: none;
-            -webkit-touch-callout: none;
-            font-family: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
         }
 
-        .paper-bg {
-            background-color: #fff9e6;
-            background-image: repeating-linear-gradient(transparent, transparent 31px, #e5e5e5 31px, #e5e5e5 32px);
-            line-height: 32px;
-            padding-top: 32px;
+        /* RPG Game Animations */
+        @keyframes warrior-step {
+            0% { transform: translateX(var(--start-x, 0)) scale(1); }
+            50% { transform: translateX(calc(var(--start-x, 0) + 15px)) scale(1.1); }
+            100% { transform: translateX(calc(var(--start-x, 0) + 25px)) scale(1); }
         }
-
-        .photo-frame {
-            background: white;
-            padding: 10px 10px 24px 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            display: inline-block;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        /* Styles for Session 2 Layout */
-        .para-row {
-            display: flex;
-            align-items: stretch;
-            margin-bottom: 0.5rem;
-        }
+        .anim-step { animation: warrior-step 0.4s ease-out forwards; }
         
-        .para-text {
-            flex: 1;
-            padding-right: 1rem;
-            text-align: justify;
+        @keyframes warrior-hurt {
+            0%, 100% { filter: brightness(1); }
+            25% { transform: translateX(calc(var(--start-x, 0) - 10px)); filter: brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(5); }
+            75% { transform: translateX(calc(var(--start-x, 0) + 10px)); filter: brightness(0.5) sepia(1) hue-rotate(-50deg) saturate(5); }
         }
+        .anim-hurt { animation: warrior-hurt 0.3s; }
 
-        .para-drop {
-            width: 130px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        @keyframes monster-attack {
+            0% { transform: translateX(0) scale(1); }
+            50% { transform: translateX(-20px) scale(1.1); }
+            100% { transform: translateX(0) scale(1); }
         }
-
-        .drop-zone {
-            border: 3px dashed #cbd5e1;
-            border-radius: 0.75rem;
-            background-color: rgba(255, 255, 255, 0.6);
-            min-height: 3rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .anim-attack { animation: monster-attack 0.4s; }
+        
+        .shield-btn {
             transition: all 0.2s;
-            cursor: pointer;
         }
-
-        .drop-zone.correct {
-            border: 3px solid #22c55e;
-            background-color: #dcfce7;
-        }
-
-        .draggable-label {
-            touch-action: none; /* Crucial for iPad dragging */
-            user-select: none;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        /* Highlight when a student taps a word */
-        .selected-label {
-            transform: scale(1.1);
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);
-            border-color: #2563eb !important;
-            z-index: 10;
-        }
-
-        @media (max-width: 768px) {
-            .para-drop { width: 100px; }
-            .paper-bg { line-height: 24px; background-image: repeating-linear-gradient(transparent, transparent 23px, #e5e5e5 23px, #e5e5e5 24px); padding-top: 24px;}
+        .shield-btn:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
-<body class="bg-blue-50 h-screen w-screen flex flex-col items-center justify-center overflow-hidden">
+<body class="bg-blue-50 min-h-screen font-sans text-gray-800 overscroll-none">
 
-    <!-- Game Container (Session 1) -->
-    <div id="game-screen" class="w-full max-w-2xl px-4 flex flex-col h-full py-6">
+    <!-- App Container -->
+    <div id="app" class="max-w-2xl mx-auto p-4 sm:p-6 h-screen flex flex-col relative safe-pb">
         
-        <!-- Header & Progress -->
-        <div class="text-center mb-4">
-            <h1 class="text-3xl font-bold text-blue-800 mb-2">🕵️ Text Detective</h1>
-            <div class="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border-2 border-blue-200">
-                <span id="score-display" class="text-lg font-bold text-green-600">Score: 0</span>
-                <span id="progress-display" class="text-lg font-bold text-blue-600">Question 1 / 6</span>
+        <!-- Header -->
+        <header class="text-center mb-6 pt-4 pt-[env(safe-area-inset-top)]">
+            <h1 class="text-2xl sm:text-3xl font-bold text-blue-800 mb-2">Final Term Exam Vocabulary</h1>
+            <p class="text-sm sm:text-base text-gray-600">Listening Practice</p>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col relative w-full h-full">
+            
+            <!-- View 1: Main Menu -->
+            <div id="view-home" class="view-section flex flex-col items-center justify-center space-y-4 flex-1">
+                <button onclick="switchView('learn')" class="w-64 py-4 bg-white rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-100 transition-all border-2 border-blue-200 text-xl font-bold text-blue-700 flex flex-col items-center gap-2">
+                    <span class="text-3xl">📖</span> 認字 (Learn)
+                </button>
+                <button onclick="startTest()" class="w-64 py-4 bg-white rounded-2xl shadow-lg hover:shadow-xl hover:bg-green-100 transition-all border-2 border-green-200 text-xl font-bold text-green-700 flex flex-col items-center gap-2">
+                    <span class="text-3xl">🧠</span> 自我測驗 (Quiz)
+                </button>
+                <button onclick="startGame()" class="w-64 py-4 bg-white rounded-2xl shadow-lg hover:shadow-xl hover:bg-purple-100 transition-all border-2 border-purple-200 text-xl font-bold text-purple-700 flex flex-col items-center gap-2">
+                    <span class="text-3xl">🎮</span> 小游戲 (Game)
+                </button>
             </div>
-        </div>
 
-        <!-- The Text Snippet Card -->
-        <div id="card-container" class="flex-grow flex flex-col justify-center items-center mb-6 relative w-full">
-            <div id="text-card" class="paper-bg w-full flex-1 min-h-[380px] border-4 border-yellow-300 rounded-2xl shadow-lg p-6 text-lg md:text-xl text-gray-800 font-medium transition-transform duration-300">
-                <!-- Text will be injected here -->
+            <!-- View 2: Learn (Flashcards) -->
+            <div id="view-learn" class="view-section hidden flex-col h-full">
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="switchView('home')" class="px-4 py-2 bg-gray-200 rounded-lg shadow font-semibold hover:bg-gray-300">⬅️ 返回主頁</button>
+                    <span class="text-gray-500 text-sm">點擊卡片翻轉並發音</span>
+                </div>
+                <div id="learn-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-10 overflow-y-auto">
+                    <!-- Cards will be generated here by JS -->
+                </div>
             </div>
-            
-            <!-- Feedback Overlay (Correct/Wrong Message) -->
-            <div id="feedback-overlay" class="absolute inset-0 flex items-center justify-center hidden rounded-2xl bg-white bg-opacity-90 z-10">
-                <div id="feedback-message" class="text-4xl font-bold text-center px-4"></div>
+
+            <!-- View 3: Self Test (Swipe Cards) -->
+            <div id="view-test" class="view-section hidden flex-col h-full items-center">
+                <div class="w-full flex justify-between items-center mb-4">
+                    <button onclick="switchView('home')" class="px-4 py-2 bg-gray-200 rounded-lg shadow font-semibold hover:bg-gray-300">⬅️ 返回主頁</button>
+                    <span id="test-progress" class="font-bold text-blue-600">剩餘: 0</span>
+                </div>
+
+                <!-- Card Area -->
+                <div class="flex-1 flex w-full items-center justify-center relative overflow-hidden mt-4 mb-8">
+                    
+                    <!-- Swipe Card Container -->
+                    <div id="test-card" class="absolute w-full max-w-sm h-80 perspective no-select z-10 cursor-pointer swipe-card">
+                        <div id="test-card-inner" class="relative w-full h-full text-center transform-style-3d card-inner shadow-xl rounded-3xl border-2 border-gray-100 bg-white">
+                            
+                            <!-- Front (English) -->
+                            <div class="absolute w-full h-full backface-hidden flex flex-col items-center justify-center bg-white rounded-3xl p-6">
+                                <h2 id="test-word-en" class="text-4xl font-bold text-blue-800 mb-6 text-wrap break-words">Word</h2>
+                                <p class="text-gray-500 mb-4">你知道讀音和意思嗎？</p>
+                                <button id="btn-show-answer" class="px-6 py-3 bg-blue-500 text-white rounded-full font-bold shadow-md hover:bg-blue-600 active:scale-95 transition-transform" onclick="flipTestCard()">看答案 👁️</button>
+                            </div>
+
+                            <!-- Back (Chinese & Audio) -->
+                            <div class="absolute w-full h-full backface-hidden rotate-y-180 flex flex-col items-center justify-center bg-yellow-50 rounded-3xl p-6 border-4 border-yellow-200">
+                                <h2 id="test-word-en-back" class="text-3xl font-bold text-gray-800 mb-2 text-wrap break-words">Word</h2>
+                                <h3 id="test-word-zh" class="text-2xl font-bold text-red-600 mb-6">意思</h3>
+                                <button onclick="playCurrentTestAudio(event)" class="w-16 h-16 bg-blue-100 rounded-full flex justify-center items-center text-3xl shadow hover:bg-blue-200 mb-6 active:scale-95 transition-transform">
+                                    🔊
+                                </button>
+                                <div class="text-sm text-gray-500 flex justify-between w-full px-4">
+                                    <span>👈 左滑: 學識</span>
+                                    <span>右滑: 重溫 👉</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Action Buttons (Visible only when answer is shown) -->
+                <div id="test-actions" class="w-full max-w-sm flex justify-between gap-4 mb-10 opacity-0 pointer-events-none transition-opacity duration-300">
+                    <button onclick="handleSwipe('left')" class="flex-1 py-4 bg-green-500 text-white rounded-xl shadow-lg font-bold text-lg active:scale-95 transition-transform">
+                        ⬅️ 已經學識
+                    </button>
+                    <button onclick="handleSwipe('right')" class="flex-1 py-4 bg-orange-500 text-white rounded-xl shadow-lg font-bold text-lg active:scale-95 transition-transform">
+                        需要重溫 ➡️
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <!-- The Three Classification Buttons -->
-        <div class="grid grid-cols-3 gap-3 w-full pb-4">
-            <button onclick="checkAnswer('email')" class="flex flex-col items-center justify-center bg-red-100 hover:bg-red-200 border-4 border-red-400 text-red-800 rounded-2xl p-4 shadow-md active:scale-95 transition-transform">
-                <span class="text-4xl mb-2">📧</span>
-                <span class="font-bold text-lg md:text-xl">Email</span>
-            </button>
-            
-            <button onclick="checkAnswer('review')" class="flex flex-col items-center justify-center bg-teal-100 hover:bg-teal-200 border-4 border-teal-400 text-teal-800 rounded-2xl p-4 shadow-md active:scale-95 transition-transform">
-                <span class="text-4xl mb-2">🍕</span>
-                <span class="font-bold text-lg md:text-xl leading-tight">Restaurant<br>Review</span>
-            </button>
-            
-            <button onclick="checkAnswer('blog')" class="flex flex-col items-center justify-center bg-green-100 hover:bg-green-200 border-4 border-green-400 text-green-800 rounded-2xl p-4 shadow-md active:scale-95 transition-transform">
-                <span class="text-4xl mb-2">💻</span>
-                <span class="font-bold text-lg md:text-xl leading-tight">Blog<br>Entry</span>
-            </button>
-        </div>
-    </div>
+            <!-- View 3.5: Test Completion -->
+            <div id="view-test-complete" class="view-section hidden flex-col items-center justify-center h-full">
+                <div class="text-6xl mb-4">🎉</div>
+                <h2 class="text-3xl font-bold text-green-600 mb-4">恭喜！</h2>
+                <p class="text-xl text-gray-700 mb-8 text-center">你已經成功掌握了所有詞彙！</p>
+                <div class="flex flex-col gap-4 w-64">
+                    <button onclick="switchView('home')" class="w-full py-3 bg-gray-200 rounded-xl font-bold text-gray-800 hover:bg-gray-300 shadow">返回主畫面</button>
+                    <button onclick="startGame()" class="w-full py-3 bg-purple-500 rounded-xl font-bold text-white hover:bg-purple-600 shadow">進入小游戲 🎮</button>
+                </div>
+            </div>
 
-    <!-- End Screen -->
-    <div id="end-screen" class="hidden w-full max-w-xl px-4 flex flex-col items-center justify-center text-center">
-        <h1 class="text-5xl font-bold text-blue-800 mb-6">🎉 Game Over!</h1>
-        <div class="bg-white p-8 rounded-3xl shadow-xl border-4 border-yellow-400 w-full mb-8">
-            <p class="text-2xl mb-4">Your Final Score:</p>
-            <p id="final-score" class="text-6xl font-black text-green-500 mb-6"></p>
-            <p id="teacher-message" class="text-xl text-gray-700"></p>
-        </div>
-        
-        <button onclick="goToPasswordScreen()" class="bg-blue-500 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-lg border-b-4 border-blue-700 active:translate-y-1 active:border-b-0 mb-4 w-full">
-            Go to Session 2 ➡️
-        </button>
-        <button onclick="restartGame()" class="text-blue-500 font-bold underline text-lg p-2">
-            Play Session 1 Again 🔄
-        </button>
-    </div>
-
-    <!-- Password Screen -->
-    <div id="password-screen" class="hidden w-full max-w-xl px-4 flex flex-col items-center justify-center text-center h-full m-auto">
-        <h1 class="text-5xl font-bold text-purple-800 mb-6">🔒 Level 2 Locked</h1>
-        <div class="bg-white p-8 rounded-3xl shadow-xl border-4 border-purple-400 w-full mb-8">
-            <p class="text-2xl mb-6 text-gray-700">Ask your teacher for the password to continue to Session 2!</p>
-            <input type="number" id="password-input" class="text-center text-4xl p-4 border-4 border-gray-300 rounded-xl mb-2 w-full max-w-xs focus:border-purple-500 focus:outline-none" placeholder="****">
-            <p id="password-error" class="text-red-500 font-bold text-lg hidden mt-2">❌ Wrong password! Try again.</p>
-        </div>
-        <button onclick="checkPassword()" class="bg-purple-500 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-lg border-b-4 border-purple-700 active:translate-y-1 active:border-b-0 w-full max-w-xs">
-            Unlock 🔓
-        </button>
-    </div>
-
-    <!-- Session 2 Screen: Blog Structure (NEW LAYOUT) -->
-    <div id="session2-screen" class="hidden w-full max-w-6xl px-2 md:px-4 flex flex-col h-full py-4 m-auto">
-        
-        <!-- Instructions Header -->
-        <div class="text-center mb-2 shrink-0">
-            <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-1">📝 Session 2: Blog Structure</h1>
-            <p class="text-gray-700 font-bold text-base md:text-lg bg-yellow-100 inline-block px-4 py-1 rounded-full border border-yellow-300 shadow-sm">
-                👆 點擊右邊的字塊，然後點擊正確的虛線框！ (Tap a word, then tap a box)
-            </p>
-        </div>
-        
-        <!-- Main Layout: 75% Left (Paper), 25% Right (Words) -->
-        <div class="flex flex-row w-full flex-1 gap-3 md:gap-6 overflow-hidden h-full pb-2">
-            
-            <!-- LEFT COLUMN: The Paper -->
-            <div class="w-3/4 paper-bg border-4 border-yellow-300 rounded-2xl shadow-lg p-3 md:p-6 text-sm md:text-lg text-gray-800 font-medium bg-white flex flex-col justify-around">
+            <!-- View 4: Mini Game (RPG Battle) -->
+            <div id="view-game" class="view-section hidden flex-col h-full items-center bg-gray-900 rounded-3xl overflow-hidden relative shadow-2xl m-2 border-4 border-gray-700">
                 
-                <!-- Title Row -->
-                <div class="para-row">
-                    <div class="para-text flex items-center justify-center">
-                        <h2 class="text-3xl md:text-4xl font-bold" style="font-family: 'Comic Sans MS', cursive;">Christmas</h2>
+                <!-- Top Bar -->
+                <div class="w-full flex justify-between items-center p-4 bg-gray-800 text-white z-10 border-b border-gray-700">
+                    <button onclick="switchView('home')" class="px-3 py-2 bg-gray-700 rounded-lg shadow font-semibold hover:bg-gray-600 text-sm flex items-center gap-1">⬅️ 逃跑</button>
+                    <div class="text-center">
+                        <div class="text-xs text-gray-400">前進 8 步擊敗怪物</div>
+                        <div id="game-progress" class="font-bold text-yellow-400 text-lg tracking-wider">步數: 0 / 8</div>
                     </div>
-                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="title">
-                        <div class="drop-zone w-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
+                </div>
+                
+                <!-- Battle Arena -->
+                <div class="flex-1 w-full flex flex-col justify-end relative bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-gray-700 overflow-hidden">
+                    <!-- Ground line -->
+                    <div class="absolute bottom-6 w-full border-b-4 border-green-800 opacity-50"></div>
+                    
+                    <!-- Characters Area -->
+                    <div class="w-full flex justify-between items-end px-6 sm:px-12 pb-6 relative z-10">
+                        
+                        <!-- Warrior (Player) -->
+                        <div class="flex flex-col items-center z-20">
+                            <!-- Hearts -->
+                            <div id="warrior-hearts" class="flex gap-1 mb-2 text-lg sm:text-xl drop-shadow-md bg-black bg-opacity-30 px-2 py-1 rounded-full">
+                                <!-- ❤️❤️❤️❤️❤️ -->
+                            </div>
+                            <!-- Sprite -->
+                            <div id="warrior-sprite" class="text-6xl sm:text-7xl drop-shadow-2xl transition-transform duration-200 transform origin-bottom" style="--start-x: 0px;">
+                                🦸‍♂️
+                            </div>
+                            <div id="warrior-shadow" class="w-16 h-3 bg-black bg-opacity-40 rounded-full mt-1 blur-[2px] transition-transform duration-200"></div>
+                        </div>
+
+                        <!-- Monster -->
+                        <div class="flex flex-col items-center z-10">
+                            <!-- Monster Speech Bubble -->
+                            <div id="monster-speech" class="bg-white px-3 py-2 rounded-2xl rounded-br-none font-bold text-lg text-purple-900 shadow-lg mb-2 relative animate-bounce border-2 border-purple-400 max-w-[150px] text-center break-words">
+                                Word
+                            </div>
+                            <!-- Sprite -->
+                            <div id="monster-sprite" class="text-7xl sm:text-8xl drop-shadow-2xl transform origin-bottom">
+                                🐉
+                            </div>
+                            <div class="w-20 h-4 bg-black bg-opacity-40 rounded-full mt-1 blur-[2px]"></div>
+                        </div>
+
                     </div>
                 </div>
 
-                <!-- Intro Row -->
-                <div class="para-row">
-                    <div class="para-text">
-                        <p>Christmas is a joyful festival. People celebrate Christmas in December. Many people enjoy celebrating this festival.</p>
+                <!-- Shield Options Area -->
+                <div class="w-full p-4 bg-gray-800 rounded-t-3xl z-20 pb-6 border-t-4 border-gray-600">
+                    <p class="text-center text-gray-300 mb-3 text-sm tracking-wide">選擇正確的盾牌抵擋怪物的攻擊！</p>
+                    <div id="game-shields" class="flex flex-col sm:flex-row justify-center gap-3">
+                        <!-- Shields generated by JS -->
                     </div>
-                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="introduction">
-                        <div class="drop-zone w-full h-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
-                    </div>
-                </div>
-
-                <!-- Body Row (Groups Para 2 & 3 together) -->
-                <div class="para-row">
-                    <div class="para-text flex flex-col gap-2 md:gap-4">
-                        <p>Before Christmas, people buy gifts for their family and friends. Also, they write beautiful Christmas cards for their family and friends. Moreover, people decorate the Christmas tree at home with colourful tinsels and ornaments.</p>
-                        <p>On Christmas Day, family members get together and have a Christmas meal. They eat a big turkey and Christmas pudding. They also exchange gifts and give out Christmas cards.</p>
-                    </div>
-                    <!-- Single Drop zone for both body paragraphs -->
-                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="body">
-                        <div class="drop-zone w-full h-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
-                    </div>
-                </div>
-
-                <!-- Ending Row -->
-                <div class="para-row">
-                    <div class="para-text">
-                        <p>I love Christmas because it makes people feel happy and warm.</p>
-                    </div>
-                    <div class="para-drop" onclick="dropToZone(this)" ondragover="event.preventDefault()" ondrop="dropToZone(this)" data-expected="ending">
-                        <div class="drop-zone w-full h-full text-xs md:text-sm text-gray-400 text-center leading-tight p-2">放這裡<br>(Drop here)</div>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- RIGHT COLUMN: Word Bank -->
-            <div class="w-1/4 bg-blue-50 border-4 border-blue-200 rounded-2xl p-2 md:p-4 flex flex-col items-center justify-center gap-4 md:gap-6 shadow-inner">
-                <h3 class="font-bold text-blue-800 text-center text-lg md:text-2xl mb-2 border-b-2 border-blue-200 pb-2 w-full">字塊</h3>
-
-                <!-- Mixed up order for the game -->
-                <div class="draggable-label bg-pink-200 border-2 border-pink-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="introduction" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
-                    Introduction
-                </div>
-
-                <div class="draggable-label bg-orange-200 border-2 border-orange-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="title" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
-                    Title
-                </div>
-
-                <div class="draggable-label bg-purple-200 border-2 border-purple-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="ending" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
-                    Ending
-                </div>
-
-                <div class="draggable-label bg-green-200 border-2 border-green-400 p-3 md:p-4 rounded-xl shadow-md text-center w-full font-bold cursor-pointer text-sm md:text-xl" draggable="true" data-type="body" onclick="selectLabel(this)" ondragstart="handleDragStart(event, this)">
-                    Body
                 </div>
             </div>
 
-        </div>
+        </main>
+    </div>
 
-        <!-- Success Message -->
-        <div id="s2-success" class="hidden shrink-0 text-center text-xl md:text-3xl font-bold text-green-600 animate-pop py-2">
-            🎉 恭喜！你完成了文章結構配對！ (Well done!)
+    <!-- Message Modal -->
+    <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex justify-center items-center">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 text-center shadow-2xl transform scale-95 transition-transform" id="modal-content">
+            <h3 id="modal-title" class="text-xl font-bold mb-2"></h3>
+            <p id="modal-desc" class="text-gray-600 mb-6"></p>
+            <button onclick="closeModal()" class="px-6 py-2 bg-blue-500 text-white rounded-lg font-bold shadow hover:bg-blue-600">確定</button>
         </div>
     </div>
 
     <script>
-        // --- SESSION 1 LOGIC ---
-        const questions = [
-            { text: "To: Mr. Wong<br>Subject: Sick Leave<br><br>Dear Mr. Wong,<br><br>I cannot go to school today because I have a fever. I will rest at home.<br><br>Best regards,<br>Tom", type: "email", hint: "Look at the top! It says 'To:' and 'Subject:'." },
-            { text: "<div class='font-black text-2xl text-blue-700 mb-2 border-b-2 border-blue-200 pb-1 leading-tight'>My Photography Journey 📸</div><div class='text-center my-3'><div class='photo-frame transform -rotate-3 text-6xl'>📷✨</div></div>Date: 15th April 2026<br><br>Hi everyone! Welcome to my page. Today I want to share my new hobby with you all!<br><br>I got a new camera for my birthday. I took many beautiful pictures of flowers in the park yesterday. I hope you like them!", type: "blog", hint: "Look for the big heading, 'Date' and the greeting to 'everyone'." },
-            { text: "<div class='text-center my-3'><div class='photo-frame transform rotate-2 text-7xl'>🍕😋</div></div>⭐⭐⭐⭐⭐<br><br>The pizza was amazing! The cheese was so yummy. The waiter was very polite too.", type: "review", hint: "Look for the Stars (⭐) and pictures/words about food!" },
-            { text: "From: Jenny<br>To: Mary<br><br>Hi Mary,<br><br>Do you want to go to the cinema this Saturday? Let me know!<br><br>Best regards,<br>Jenny", type: "email", hint: "It has a 'From:' and a 'To:'. People send these to each other." },
-            { text: "<div class='font-black text-2xl text-blue-700 mb-2 border-b-2 border-blue-200 pb-1 leading-tight'>So Much Homework! 😭</div><div class='text-center my-3'><div class='photo-frame transform rotate-3 text-6xl'>📚😴</div></div>Date: 20th May 2026<br><br>I feel so tired today. School was very hard. I have too much homework! 😭<br><br>I have to write a long story for English class. I also have math exercises to finish. I just want to sleep now. Goodnight everyone!", type: "blog", hint: "It has a big heading and a Date, and the writer is sharing their personal feelings like a diary." },
-            { text: "<div class='text-center my-3'><div class='photo-frame transform -rotate-2 text-7xl'>🍔🧊</div></div>⭐<br><br>Terrible! The burger was cold and the restaurant was very dirty. I will not go back.", type: "review", hint: "It has a Star rating (⭐) and talks about a restaurant's food and cleanliness." }
+        // Vocabulary Data (16 words provided in prompt)
+        const vocabList = [
+            { en: 'add', zh: '加入 / 增加' },
+            { en: 'Chinese New Year', zh: '農曆新年' },
+            { en: 'chop', zh: '切碎 / 砍' },
+            { en: 'confused', zh: '感到困惑的' },
+            { en: 'exams', zh: '考試' },
+            { en: 'exchange gifts', zh: '交換禮物' },
+            { en: 'friends', zh: '朋友' },
+            { en: 'heavy', zh: '重的' },
+            { en: 'mix', zh: '混合' },
+            { en: 'parents', zh: '父母' },
+            { en: 'peel', zh: '剝皮' },
+            { en: 'pet adoption event', zh: '寵物領養活動' },
+            { en: 'remove', zh: '移除 / 拿走' },
+            { en: 'sour', zh: '酸的' },
+            { en: 'sweets', zh: '糖果 / 甜食' },
+            { en: 'worried', zh: '擔心的' }
         ];
 
-        let currentIndex = 0;
-        let score = 0;
-        let isWaiting = false; 
-
-        const textCard = document.getElementById('text-card');
-        const scoreDisplay = document.getElementById('score-display');
-        const progressDisplay = document.getElementById('progress-display');
-        const feedbackOverlay = document.getElementById('feedback-overlay');
-        const feedbackMessage = document.getElementById('feedback-message');
-        const gameScreen = document.getElementById('game-screen');
-        const endScreen = document.getElementById('end-screen');
+        // --- Core Functions ---
         
-        const passwordScreen = document.getElementById('password-screen');
-        const session2Screen = document.getElementById('session2-screen');
-        const passwordInput = document.getElementById('password-input');
-        const passwordError = document.getElementById('password-error');
+        // iOS Audio Unlocker (解決 Safari 語音無法自動播放的問題)
+        let isAudioUnlocked = false;
+        function unlockAudioForIOS() {
+            if (isAudioUnlocked) return;
+            
+            // 1. Prime Web Audio API (音效)
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // 2. Prime Speech Synthesis (語音)
+            if ('speechSynthesis' in window) {
+                const primeUtterance = new SpeechSynthesisUtterance('');
+                primeUtterance.volume = 0; // 靜音播放一次以解鎖引擎
+                window.speechSynthesis.speak(primeUtterance);
+            }
+            
+            isAudioUnlocked = true;
+            document.removeEventListener('touchstart', unlockAudioForIOS);
+            document.removeEventListener('click', unlockAudioForIOS);
+        }
+        
+        // 監聽玩家在網頁的第一次互動
+        document.addEventListener('touchstart', unlockAudioForIOS, { once: true });
+        document.addEventListener('click', unlockAudioForIOS, { once: true });
 
-        function loadQuestion() {
-            if (currentIndex >= questions.length) {
-                showEndScreen();
+        // Speech Synthesis
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                // Cancel current speech if any
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US'; 
+                utterance.rate = 0.9; // Slightly slower for clearer listening
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // View Navigation
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => {
+                el.classList.remove('flex');
+                el.classList.add('hidden');
+            });
+            const activeView = document.getElementById(`view-${viewId}`);
+            activeView.classList.remove('hidden');
+            activeView.classList.add('flex');
+
+            if (viewId === 'learn') {
+                renderLearnGrid();
+            }
+        }
+
+        // Custom Modal
+        function showModal(title, desc) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-desc').innerText = desc;
+            const modal = document.getElementById('message-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => document.getElementById('modal-content').classList.remove('scale-95'), 10);
+        }
+
+        function closeModal() {
+            document.getElementById('modal-content').classList.add('scale-95');
+            setTimeout(() => document.getElementById('message-modal').classList.add('hidden'), 200);
+        }
+
+        // Array Shuffle utility
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // --- 1. 認字 (Learn) Module ---
+        function renderLearnGrid() {
+            const grid = document.getElementById('learn-grid');
+            grid.innerHTML = ''; // clear existing
+            
+            vocabList.forEach((vocab, index) => {
+                const card = document.createElement('div');
+                card.className = 'perspective h-40 cursor-pointer no-select';
+                card.innerHTML = `
+                    <div class="relative w-full h-full card-inner transform-style-3d shadow-md rounded-xl border border-gray-200" id="learn-card-${index}">
+                        <!-- Front -->
+                        <div class="absolute w-full h-full backface-hidden flex items-center justify-center bg-white rounded-xl p-2">
+                            <h3 class="text-lg font-bold text-blue-900 text-center text-wrap break-words leading-tight">${vocab.en}</h3>
+                        </div>
+                        <!-- Back -->
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 flex flex-col items-center justify-center bg-blue-50 rounded-xl p-2 border-2 border-blue-200">
+                            <h3 class="text-md font-bold text-red-600 text-center mb-2 leading-tight">${vocab.zh}</h3>
+                            <button onclick="playLearnAudio(event, '${vocab.en}')" class="w-10 h-10 bg-blue-200 rounded-full flex justify-center items-center text-xl shadow-sm hover:bg-blue-300">
+                                🔊
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Click to flip
+                card.onclick = () => {
+                    const inner = document.getElementById(`learn-card-${index}`);
+                    const isFlipped = card.classList.contains('flipped');
+                    if (!isFlipped) {
+                        card.classList.add('flipped');
+                        speak(vocab.en);
+                    } else {
+                        card.classList.remove('flipped');
+                    }
+                };
+                
+                grid.appendChild(card);
+            });
+        }
+
+        function playLearnAudio(event, word) {
+            event.stopPropagation(); // Prevent card from flipping back
+            speak(word);
+        }
+
+        // --- 2. 自我測驗 (Quiz / Test) Module ---
+        let testQueue = [];
+        let currentTestItem = null;
+        let isCardFlipped = false;
+
+        // Touch handling variables
+        let startX = 0;
+        let currentX = 0;
+        let isDragging = false;
+        const testCardEl = document.getElementById('test-card');
+
+        function startTest() {
+            // Create a queue of indices
+            testQueue = vocabList.map((_, index) => index);
+            shuffleArray(testQueue);
+            switchView('test');
+            loadNextTestCard();
+        }
+
+        function loadNextTestCard() {
+            if (testQueue.length === 0) {
+                switchView('test-complete');
                 return;
             }
-            const currentQ = questions[currentIndex];
-            textCard.innerHTML = currentQ.text;
-            progressDisplay.innerText = `Question ${currentIndex + 1} / ${questions.length}`;
-            scoreDisplay.innerText = `Score: ${score}`;
+
+            document.getElementById('test-progress').innerText = `剩餘: ${testQueue.length}`;
+            const index = testQueue[0];
+            currentTestItem = vocabList[index];
+            isCardFlipped = false;
+
+            // Reset UI instantly without animation
+            testCardEl.style.transition = 'none';
+            const innerCard = document.getElementById('test-card-inner');
+            innerCard.style.transition = 'none';
+
+            testCardEl.classList.remove('flipped', 'swipe-left-anim', 'swipe-right-anim');
+            testCardEl.style.transform = '';
+            innerCard.classList.remove('rotate-y-180');
             
-            textCard.classList.remove('animate-pop');
-            void textCard.offsetWidth; 
-            textCard.classList.add('animate-pop');
-            isWaiting = false;
+            // Force reflow to snap instantly
+            void testCardEl.offsetWidth;
+            
+            testCardEl.style.transition = '';
+            innerCard.style.transition = '';
+
+            document.getElementById('test-actions').classList.remove('opacity-100', 'pointer-events-auto');
+            document.getElementById('test-actions').classList.add('opacity-0', 'pointer-events-none');
+            
+            // Populate content
+            document.getElementById('test-word-en').innerText = currentTestItem.en;
+            document.getElementById('test-word-en-back').innerText = currentTestItem.en;
+            document.getElementById('test-word-zh').innerText = currentTestItem.zh;
         }
 
-        function checkAnswer(selectedType) {
-            if (isWaiting) return; 
-            isWaiting = true;
+        function flipTestCard() {
+            if (isCardFlipped) return;
+            isCardFlipped = true;
+            testCardEl.classList.add('flipped');
+            speak(currentTestItem.en);
+            
+            // Show action buttons
+            document.getElementById('test-actions').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('test-actions').classList.add('opacity-100', 'pointer-events-auto');
+        }
 
-            const currentQ = questions[currentIndex];
-            const isCorrect = selectedType === currentQ.type;
+        function playCurrentTestAudio(event) {
+            event.stopPropagation();
+            if (currentTestItem) {
+                speak(currentTestItem.en);
+            }
+        }
 
-            feedbackOverlay.classList.remove('hidden');
+        // Button action for Swipe
+        function handleSwipe(direction) {
+            if (!isCardFlipped) return;
+
+            if (direction === 'left') {
+                // Learned
+                testCardEl.classList.add('swipe-left-anim');
+                testQueue.shift(); // Remove from queue
+            } else {
+                // Need review
+                testCardEl.classList.add('swipe-right-anim');
+                const item = testQueue.shift();
+                testQueue.push(item); // Add to end of queue
+            }
+
+            // Wait for animation, then load next
+            setTimeout(() => {
+                loadNextTestCard();
+            }, 300);
+        }
+
+        // Touch Events for physical swiping
+        testCardEl.addEventListener('touchstart', (e) => {
+            if (!isCardFlipped) return;
+            startX = e.touches[0].clientX;
+            isDragging = true;
+            testCardEl.style.transition = 'none'; // remove transition for smooth drag
+        });
+
+        testCardEl.addEventListener('touchmove', (e) => {
+            if (!isDragging || !isCardFlipped) return;
+            currentX = e.touches[0].clientX;
+            const diffX = currentX - startX;
+            const rotate = diffX * 0.05;
+            testCardEl.style.transform = `translateX(${diffX}px) rotate(${rotate}deg)`;
+        });
+
+        testCardEl.addEventListener('touchend', (e) => {
+            if (!isDragging || !isCardFlipped) return;
+            isDragging = false;
+            testCardEl.style.transition = '';
+            
+            const diffX = currentX - startX;
+            const threshold = 80;
+
+            if (diffX < -threshold) {
+                // Swiped Left (Learned)
+                handleSwipe('left');
+            } else if (diffX > threshold) {
+                // Swiped Right (Review)
+                handleSwipe('right');
+            } else {
+                // Snap back
+                testCardEl.style.transform = '';
+            }
+        });
+
+        // Mouse events for desktop swiping support (Optional but good for testing)
+        testCardEl.addEventListener('mousedown', (e) => {
+            if (!isCardFlipped) return;
+            startX = e.clientX;
+            isDragging = true;
+            testCardEl.style.transition = 'none';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging || !isCardFlipped) return;
+            currentX = e.clientX;
+            const diffX = currentX - startX;
+            const rotate = diffX * 0.05;
+            testCardEl.style.transform = `translateX(${diffX}px) rotate(${rotate}deg)`;
+        });
+
+        window.addEventListener('mouseup', (e) => {
+             if (!isDragging || !isCardFlipped) return;
+            isDragging = false;
+            testCardEl.style.transition = '';
+            
+            const diffX = currentX - startX;
+            const threshold = 80;
+
+            if (diffX < -threshold) {
+                handleSwipe('left');
+            } else if (diffX > threshold) {
+                handleSwipe('right');
+            } else {
+                testCardEl.style.transform = '';
+            }
+        });
+
+
+        // --- Audio Effects Setup (Web Audio API) ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            unlockAudioForIOS(); // 確保進入遊戲時觸發解鎖
+        }
+
+        function playTone(freq, type, duration, vol=0.1) {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function sfxCorrect() {
+            playTone(600, 'sine', 0.1, 0.1);
+            setTimeout(() => playTone(800, 'sine', 0.15, 0.1), 100);
+        }
+
+        function sfxWrong() {
+            playTone(200, 'sawtooth', 0.3, 0.15);
+            setTimeout(() => playTone(150, 'sawtooth', 0.4, 0.15), 150);
+        }
+
+        function sfxWin() {
+            [400, 500, 600, 800].forEach((freq, i) => {
+                setTimeout(() => playTone(freq, 'square', 0.2, 0.1), i * 150);
+            });
+        }
+
+        function sfxLose() {
+            [300, 250, 200, 150].forEach((freq, i) => {
+                setTimeout(() => playTone(freq, 'sawtooth', 0.3, 0.15), i * 200);
+            });
+        }
+
+
+        // --- 3. 小游戲 (RPG Mini Game) Module ---
+        let gameQuestions = [];
+        let currentGameIndex = 0;
+        
+        let warriorHealth = 5;
+        let warriorSteps = 0;
+        const maxHealth = 5;
+        const requiredSteps = 8;
+        
+        let currentWarriorPos = 0; 
+        const stepDistance = 25; // pixels to move per step
+
+        function startGame() {
+            initAudio(); // Initialize audio context on user click
+            warriorHealth = maxHealth;
+            warriorSteps = 0;
+            currentGameIndex = 0;
+            currentWarriorPos = 0;
+            
+            // Prepare questions (select 8 words randomly)
+            let pool = [...vocabList];
+            shuffleArray(pool);
+            gameQuestions = pool.slice(0, requiredSteps); 
+            
+            // Reset character positions
+            const warrior = document.getElementById('warrior-sprite');
+            const shadow = document.getElementById('warrior-shadow');
+            warrior.style.setProperty('--start-x', '0px');
+            warrior.style.transform = `translateX(0px)`;
+            shadow.style.transform = `translateX(0px)`;
+            warrior.className = 'text-6xl sm:text-7xl drop-shadow-2xl transition-transform duration-200 transform origin-bottom'; // Reset animations
+            
+            updateHearts();
+            switchView('game');
+            loadGameQuestion();
+        }
+
+        function updateHearts() {
+            const heartsContainer = document.getElementById('warrior-hearts');
+            let heartsHtml = '';
+            for(let i=0; i<maxHealth; i++) {
+                if (i < warriorHealth) heartsHtml += '❤️';
+                else heartsHtml += '<span class="opacity-30 grayscale">❤️</span>';
+            }
+            heartsContainer.innerHTML = heartsHtml;
+        }
+
+        function loadGameQuestion() {
+            if (warriorSteps >= requiredSteps) {
+                setTimeout(gameWin, 500);
+                return;
+            }
+            if (warriorHealth <= 0) {
+                setTimeout(gameOver, 500);
+                return;
+            }
+
+            document.getElementById('game-progress').innerText = `步數: ${warriorSteps} / ${requiredSteps}`;
+            
+            const currentQ = gameQuestions[currentGameIndex];
+            
+            // Generate 3 options (1 correct, 2 wrong)
+            let options = [{ text: currentQ.zh, correct: true }];
+            let fakePool = [...vocabList].filter(v => v.zh !== currentQ.zh);
+            shuffleArray(fakePool);
+            
+            options.push({ text: fakePool[0].zh, correct: false });
+            options.push({ text: fakePool[1].zh, correct: false });
+            shuffleArray(options);
+
+            // Update UI
+            const monsterSpeech = document.getElementById('monster-speech');
+            monsterSpeech.innerText = currentQ.en;
+            
+            const shieldsContainer = document.getElementById('game-shields');
+            shieldsContainer.innerHTML = options.map((opt, idx) => `
+                <button onclick="checkGameAnswer(${opt.correct}, this)" class="shield-btn flex-1 py-3 px-2 bg-gradient-to-b from-yellow-100 to-yellow-300 hover:from-yellow-200 hover:to-yellow-400 border-b-4 border-yellow-600 rounded-xl text-lg font-bold text-gray-800 shadow-md flex items-center justify-center gap-2">
+                    🛡️ <span class="break-words text-sm sm:text-base">${opt.text}</span>
+                </button>
+            `).join('');
+            
+            // Monster attack animation
+            const monster = document.getElementById('monster-sprite');
+            monster.classList.remove('anim-attack');
+            void monster.offsetWidth; // trigger reflow
+            monster.classList.add('anim-attack');
+            
+            speak(currentQ.en); // Auto speak when question appears
+        }
+
+        function checkGameAnswer(isCorrect, btnElement) {
+            // Disable all buttons to prevent spam clicking
+            const buttons = document.querySelectorAll('.shield-btn');
+            buttons.forEach(btn => btn.style.pointerEvents = 'none');
+
+            const warrior = document.getElementById('warrior-sprite');
+            const shadow = document.getElementById('warrior-shadow');
 
             if (isCorrect) {
-                score += 10;
-                feedbackMessage.innerHTML = "✅ Correct!<br><span class='text-xl text-gray-600 mt-2 block'>Great job!</span>";
-                feedbackMessage.className = "text-5xl font-bold text-center px-4 text-green-500";
-                scoreDisplay.innerText = `Score: ${score}`;
+                // Correct logic
+                sfxCorrect();
+                btnElement.classList.replace('from-yellow-100', 'from-green-300');
+                btnElement.classList.replace('to-yellow-300', 'to-green-500');
+                btnElement.classList.replace('border-yellow-600', 'border-green-700');
+                
+                warriorSteps++;
+                
+                // Set start position for animation and animate
+                warrior.style.setProperty('--start-x', `${currentWarriorPos}px`);
+                warrior.classList.add('anim-step');
+                
+                currentWarriorPos += stepDistance; // move physical position right
                 
                 setTimeout(() => {
-                    feedbackOverlay.classList.add('hidden');
-                    currentIndex++;
-                    loadQuestion();
-                }, 1200);
+                    warrior.classList.remove('anim-step');
+                    warrior.style.transform = `translateX(${currentWarriorPos}px)`;
+                    shadow.style.transform = `translateX(${currentWarriorPos}px)`;
+                }, 400);
 
             } else {
-                textCard.classList.remove('animate-shake');
-                void textCard.offsetWidth; 
-                textCard.classList.add('animate-shake');
-
-                feedbackMessage.innerHTML = `❌ Oops!<br><span class='text-2xl text-blue-600 mt-4 block p-4 bg-blue-50 rounded-xl border border-blue-200'><b>Hint:</b> ${currentQ.hint}</span>`;
-                feedbackMessage.className = "text-5xl font-bold text-center px-4 text-red-500";
-
-                setTimeout(() => {
-                    feedbackOverlay.classList.add('hidden');
-                    currentIndex++;
-                    loadQuestion();
-                }, 3500);
-            }
-        }
-
-        function showEndScreen() {
-            gameScreen.classList.add('hidden');
-            endScreen.classList.remove('hidden');
-            document.getElementById('final-score').innerText = score;
-            
-            let msg = "";
-            if (score === 60) msg = "Perfect! You are ready to write a blog!";
-            else if (score >= 40) msg = "Good job! You know your text types well.";
-            else msg = "Good try! Let's review the features together.";
-            
-            document.getElementById('teacher-message').innerText = msg;
-        }
-
-        function restartGame() {
-            currentIndex = 0;
-            score = 0;
-            questions.sort(() => Math.random() - 0.5);
-            endScreen.classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            loadQuestion();
-        }
-
-        function goToPasswordScreen() {
-            endScreen.classList.add('hidden');
-            passwordScreen.classList.remove('hidden');
-            passwordInput.value = '';
-            passwordError.classList.add('hidden');
-        }
-
-        function checkPassword() {
-            if (passwordInput.value === "6519") {
-                passwordScreen.classList.add('hidden');
-                session2Screen.classList.remove('hidden');
-            } else {
-                passwordError.classList.remove('hidden');
-                passwordInput.classList.remove('animate-shake');
-                void passwordInput.offsetWidth; 
-                passwordInput.classList.add('animate-shake');
-            }
-        }
-
-        // --- SESSION 2 LOGIC (Drag / Tap & Drop) ---
-        let selectedLabel = null;
-        let s2Score = 0;
-
-        // User taps a label in the word bank
-        function selectLabel(element) {
-            if (element.parentElement.classList.contains('drop-zone')) return; // Already dropped
-            
-            if (selectedLabel) {
-                selectedLabel.classList.remove('selected-label');
-            }
-            selectedLabel = element;
-            selectedLabel.classList.add('selected-label');
-        }
-
-        // Support for HTML5 Drag (Mouse users)
-        function handleDragStart(event, element) {
-            selectLabel(element); // Highlight it
-            event.dataTransfer.setData('text', element.dataset.type);
-        }
-
-        // User taps a drop zone, or drops via mouse
-        function dropToZone(zoneWrapper) {
-            // Because onclick is on the wrapper, find the actual dashed zone inside
-            const zoneElement = zoneWrapper.querySelector('.drop-zone');
-            if (!zoneElement || !selectedLabel) return;
-
-            const expected = zoneWrapper.dataset.expected;
-            const actual = selectedLabel.dataset.type;
-
-            if (expected === actual) {
-                // Correct match!
-                zoneElement.innerHTML = ''; // Remove "Drop here" text
-                zoneElement.appendChild(selectedLabel);
+                // Incorrect logic
+                sfxWrong();
+                btnElement.classList.replace('from-yellow-100', 'from-red-300');
+                btnElement.classList.replace('to-yellow-300', 'to-red-500');
+                btnElement.classList.replace('border-yellow-600', 'border-red-700');
                 
-                // Style adjustments so it fits perfectly in the box
-                selectedLabel.classList.remove('selected-label');
-                selectedLabel.style.margin = "0";
-                selectedLabel.style.width = "100%";
-                selectedLabel.style.height = "100%";
-                selectedLabel.style.display = "flex";
-                selectedLabel.style.alignItems = "center";
-                selectedLabel.style.justifyContent = "center";
-                selectedLabel.onclick = null; // Disable clicking it again
+                warriorHealth--;
+                updateHearts();
                 
-                zoneElement.classList.add('correct');
-                selectedLabel = null;
-                s2Score++;
-                
-                // Win Condition
-                if (s2Score === 4) {
-                    document.getElementById('s2-success').classList.remove('hidden');
-                }
-            } else {
-                // Wrong match -> Shake animation
-                zoneElement.classList.add('animate-shake');
-                setTimeout(() => zoneElement.classList.remove('animate-shake'), 400);
+                // Shake / Hurt animation
+                warrior.style.setProperty('--start-x', `${currentWarriorPos}px`);
+                warrior.classList.add('anim-hurt');
+                setTimeout(() => warrior.classList.remove('anim-hurt'), 300);
             }
+            
+            currentGameIndex++;
+            
+            // Proceed to next question after delay
+            setTimeout(() => {
+                loadGameQuestion();
+            }, 1000);
+        }
+        
+        function gameWin() {
+            sfxWin();
+            showModal("✨ 戰鬥勝利！ ✨", "太棒了！小戰士成功擊敗了怪物，你掌握了所有單字！");
+            // Override default close modal action to return to home screen
+            const btn = document.getElementById('modal-content').querySelector('button');
+            const originalOnClick = btn.onclick;
+            btn.onclick = () => {
+                closeModal();
+                switchView('home');
+                btn.onclick = originalOnClick; // restore
+            };
+        }
+        
+        function gameOver() {
+            sfxLose();
+            showModal("💔 戰鬥失敗", "小戰士的愛心耗盡了... 休息一下再來挑戰吧！");
+            const btn = document.getElementById('modal-content').querySelector('button');
+            const originalOnClick = btn.onclick;
+            btn.onclick = () => {
+                closeModal();
+                switchView('home');
+                btn.onclick = originalOnClick; // restore
+            };
         }
 
-        window.onload = loadQuestion;
     </script>
 </body>
 </html>
